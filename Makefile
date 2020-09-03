@@ -575,7 +575,7 @@ libgizmo-header	:= include/gizmo.h
 libgizmo-all	:= $(libgizmo-objs) $(libgizmo-libs)
 
 quiet_cmd_libgizmo = LD      $@
-      cmd_libgizmo = $(CC) $(LDFLAGS) --shared -o $@.so                \
+      cmd_libgizmo = $(CC) $(LDFLAGS) -nostdlib --shared -o $@.so                \
       -Wl,--start-group $(libgizmo-libs) $(libgizmo-objs) -Wl,--end-group
 
 libgizmo: $(libgizmo-all) $(libgizmo-header) FORCE
