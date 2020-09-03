@@ -2,534 +2,429 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
-
-typedef enum {
-	RED,
-	BLACK
-} bt_color;
+#include "bt_rb.h"
 
 
-typedef struct _bt_node {
-	int val; 
-	bt_color color; 
-	struct _bt_node *left;
-	struct _bt_node *right;
-	struct _bt_node *parent; 
-} bt_node;
-
-
-bt_node *bt_node_create(int val)
+static bt_node *bt_node_create(int val)
 {
-	bt_node *tmp = (bt_node *)malloc(sizeof(bt_node));
-	if (!tmp) {
-		return NULL;
-	}
+        bt_node *tmp;
 
-	tmp->parent = NULL;
-	tmp->left = NULL;
-       	tmp->right = NULL; 
-	tmp->color = RED; 
-	tmp->val = val;
-	return tmp;
+        tmp = (bt_node *)malloc(sizeof(bt_node));
+        if (!tmp) {
+                return NULL;
+        }
+
+        tmp->parent = NULL;
+        tmp->left = NULL;
+        tmp->right = NULL;
+        tmp->color = RED;
+        tmp->val = val;
+
+        return tmp;
 }
 
 
-bool bt_is_left_child(bt_node *e) {
-	return e == e->parent->left;
-}
-
-
-bt_node *bt_uncle(bt_node *n)
+static inline bool bt_is_left_child(bt_node *e)
 {
-	if (!n->parent || !n->parent->parent) {
-		return NULL; 
-	}
-
-	/* if the parent is the left child of its own parent,
-	 * then the uncle is the right child of its parent */
-	if (bt_is_left_child(n->parent)) {
-		return n->parent->parent->right;
-	} else {
-		return n->parent->parent->left; 
-	}
+        return e == e->parent->left;
 }
 
 
-bt_node *bt_sibling(bt_node *n)
-{ 
-	if (!n->parent) {
-		return NULL;
-	}
+static bt_node *bt_uncle(bt_node *n)
+{
+        if (!n->parent || !n->parent->parent) {
+                return NULL;
+        }
 
-	if (bt_is_left_child(n)) {
-		return n->parent->right;
-	}
+        /* if the parent is the left child of its own parent,
+         * then the uncle is the right child of its parent */
+        if (bt_is_left_child(n->parent)) {
+                return n->parent->parent->right;
+        }
 
-	return n->parent->left; 
-} 
+        return n->parent->parent->left;
+}
+
+
+static bt_node *bt_sibling(bt_node *n)
+{
+        if (!n->parent) {
+                return NULL;
+        }
+
+        if (bt_is_left_child(n)) {
+                return n->parent->right;
+        }
+
+        return n->parent->left;
+}
 
 
 
 /* moves node down and moves given node in its place */
-void bt_move_down(bt_node *n, bt_node *nParent) { 
-	if (n->parent) { 
-		if (bt_is_left_child(n)) { 
-			n->parent->left = nParent; 
-		} else { 
-			n->parent->right = nParent; 
-		} 
-	} 
-	nParent->parent = n->parent; 
-	n->parent = nParent; 
-} 
+static void bt_move_down(bt_node *n, bt_node *nParent)
+{
+        if (n->parent) {
+                if (bt_is_left_child(n)) {
+                        n->parent->left = nParent;
+                } else {
+                        n->parent->right = nParent;
+                }
+        }
+        nParent->parent = n->parent;
+        n->parent = nParent;
+}
 
 
-bool bt_has_red_child(bt_node *n)
-{ 
-	return (n->left && n->left->color == RED) || 
-		(n->right && n->right->color == RED); 
-} 
+static bool bt_has_red_child(bt_node *n)
+{
+        return (n->left && n->left->color == RED) ||
+                (n->right && n->right->color == RED);
+}
 
 
-// FIXME: the one and only root
-bt_node *root;
+static void bt_rotate_left(bt_node **root, bt_node *x)
+{
+        bt_node *nParent = x->right;
+
+        if (x == *root) {
+                *root = nParent;
+        }
+
+        bt_move_down(x, nParent);
+        x->right = nParent->left;
+
+        if (nParent->left) {
+                nParent->left->parent = x;
+        }
+
+        nParent->left = x;
+}
 
 
-void bt_rotate_left(bt_node *x)
-{ 
-	bt_node *nParent = x->right; 
+static void bt_rotate_right(bt_node **root, bt_node *x)
+{
+        bt_node *nParent = x->left;
 
-	if (x == root) {
-		root = nParent;
-	}
+        if (x == *root) {
+                *root = nParent;
+        }
 
-	bt_move_down(x, nParent);
-	x->right = nParent->left; 
-	
-	if (nParent->left) {
-		nParent->left->parent = x;
-	}
+        bt_move_down(x, nParent);
+        x->left = nParent->right;
 
-	nParent->left = x; 
-} 
+        if (nParent->right) {
+                nParent->right->parent = x;
+        }
 
-
-void bt_rotate_right(bt_node *x)
-{ 
-	bt_node *nParent = x->left; 
-
-	if (x == root) { 
-		root = nParent; 
-	}
-
-	bt_move_down(x, nParent);
-	x->left = nParent->right; 
-	
-	if (nParent->right) {
-		nParent->right->parent = x;
-	}
-	
-	nParent->right = x; 
-} 
+        nParent->right = x;
+}
 
 
-void bt_color_swap(bt_node *x1, bt_node *x2)
-{ 
-	bt_color temp; 
-	temp = x1->color; 
-	x1->color = x2->color; 
-	x2->color = temp; 
-} 
+static inline void bt_color_swap(bt_node *x1, bt_node *x2)
+{
+        bt_color temp;
+        temp = x1->color;
+        x1->color = x2->color;
+        x2->color = temp;
+}
 
 
-void bt_value_swap(bt_node *u, bt_node *v)
-{ 
-	int temp; 
-	temp = u->val; 
-	u->val = v->val; 
-	v->val = temp; 
-} 
+static inline void bt_value_swap(bt_node *u, bt_node *v)
+{
+        int temp;
+        temp = u->val;
+        u->val = v->val;
+        v->val = temp;
+}
 
 
-void bt_fix_red_red(bt_node *x)
-{ 
-	if (x == root) { 
-		x->color = BLACK; 
-		return; 
-	} 
+static void bt_fix_red_red(bt_node **root, bt_node *x)
+{
+        if (x == *root) {
+                x->color = BLACK;
+                return;
+        }
 
-	bt_node *parent = x->parent;
-	bt_node *grandparent = parent->parent;
-	bt_node *uncle = bt_uncle(x); 
+        bt_node *parent = x->parent;
+        bt_node *grandparent = parent->parent;
+        bt_node *uncle = bt_uncle(x);
 
-	if (parent->color != BLACK) { 
-		if (uncle && uncle->color == RED) { 
-			// uncle red, perform recoloring and recurse 
-			parent->color = BLACK; 
-			uncle->color = BLACK; 
-			grandparent->color = RED; 
-			bt_fix_red_red(grandparent); 
-		} else { 
-			// Else perform LR, LL, RL, RR 
-			if (bt_is_left_child(parent)) { 
-				if (bt_is_left_child(x)) { 
-					// for left right 
-					bt_color_swap(parent, grandparent); 
-				} else { 
-					bt_rotate_left(parent); 
-					bt_color_swap(x, grandparent); 
-				} 
-				// for left left and left right 
-				bt_rotate_right(grandparent); 
-			} else { 
-				if (bt_is_left_child(x)) { 
-					// for right left 
-					bt_rotate_right(parent); 
-					bt_color_swap(x, grandparent); 
-				} else { 
-					bt_color_swap(parent, grandparent); 
-				} 
+        if (parent->color != BLACK) {
+                if (uncle && uncle->color == RED) {
+                        parent->color = BLACK;
+                        uncle->color = BLACK;
+                        grandparent->color = RED;
+                        bt_fix_red_red(root, grandparent);
+                        return;
+                }
 
-				// for right right and right left 
-				bt_rotate_left(grandparent); 
-			} 
-		} 
-	} 
-} 
+                if (bt_is_left_child(parent)) {
+                        if (bt_is_left_child(x)) {
+                                bt_color_swap(parent, grandparent);
+                        } else {
+                                bt_rotate_left(root, parent);
+                                bt_color_swap(x, grandparent);
+                        }
+                        bt_rotate_right(root, grandparent);
+                        return;
+                }
+
+                if (bt_is_left_child(x)) {
+                        // for right left
+                        bt_rotate_right(root, parent);
+                        bt_color_swap(x, grandparent);
+                } else {
+                        bt_color_swap(parent, grandparent);
+                }
+
+                bt_rotate_left(root, grandparent);
+        }
+}
 
 
-/* find node that do not have a left child 
+/* find node that do not have a left child
  * in the subtree of the given node */
-bt_node *bt_successor(bt_node *x)
-{ 
-	bt_node *tmp = x; 
+static bt_node *bt_successor(bt_node *x)
+{
+        bt_node *tmp = x;
 
-	while (tmp->left) {
-		tmp = tmp->left;
-	}
+        while (tmp->left) {
+                tmp = tmp->left;
+        }
 
-	return tmp; 
-} 
+        return tmp;
+}
 
 
 /* find node that replaces a deleted node in BST */
-bt_node *bt_replace(bt_node *x)
-{ 
-	// if node has 2 children 
-	if (x->left && x->right) {
-		return bt_successor(x->right);
-	}
-
-	// if leaf 
-	if (!x->left && !x->right) {
-		return NULL;
-	}
-
-	// if single child 
-	if (x->left != NULL) {
-		return x->left;
-	} else {
-		return x->right;
-	}
-} 
-
-
-void bt_fix_double_black(bt_node *x)
-{ 
-	if (x == root)
-	{
-		return;
-	}
-
-	bt_node *sibling = bt_sibling(x);
-	bt_node *parent = x->parent; 
-
-	if (sibling == NULL) {
-		// No sibiling, double black pushed up 
-		bt_fix_double_black(parent); 
-	} else { 
-		if (sibling->color == RED) { 
-			// Sibling red 
-			parent->color = RED; 
-			sibling->color = BLACK; 
-			if (bt_is_left_child(sibling)) { 
-				bt_rotate_right(parent); 
-			} else { 
-				bt_rotate_left(parent); 
-			} 
-			bt_fix_double_black(x); 
-		} else { 
-			if (bt_has_red_child(sibling)) { 
-				// at least 1 red children 
-				if (sibling->left && (sibling->left->color == RED)) { 
-					if (bt_is_left_child(sibling)) { 
-						// left left 
-						sibling->left->color = sibling->color; 
-						sibling->color = parent->color; 
-						bt_rotate_right(parent); 
-					} else { 
-						// right left 
-						sibling->left->color = parent->color; 
-						bt_rotate_right(sibling); 
-						bt_rotate_left(parent); 
-					} 
-				} else { 
-					if (bt_is_left_child(sibling)) { 
-						// left right 
-						sibling->right->color = parent->color; 
-						bt_rotate_left(sibling); 
-						bt_rotate_right(parent); 
-					} else { 
-						// right right 
-						sibling->right->color = sibling->color; 
-						sibling->color = parent->color; 
-						bt_rotate_left(parent); 
-					} 
-				} 
-				parent->color = BLACK; 
-			} else { 
-				// 2 black children 
-				sibling->color = RED; 
-				if (parent->color == BLACK) {
-					bt_fix_double_black(parent); 
-				} else {
-					parent->color = BLACK; 
-				} 
-			} 
-		}
-	}
-	
-} 
-
-
-
-void bt_delete(bt_node *v)
-{ 
-	bt_node *u = bt_replace(v); 
-
-	bool uvBlack = (u == NULL || u->color == BLACK) && (v->color == BLACK);
-	bt_node *parent = v->parent; 
-
-	if (!u) { 
-		/* u is NULL therefore v is leaf */
-		if (v == root) { 
-			// v is root, making root null 
-			root = NULL; 
-		} else { 
-			if (uvBlack) { 
-				/* u and v both black 
-				 * v is leaf, fix double black at v */
-				bt_fix_double_black(v); 
-			} else { 
-				/* u or v is red */
-				if (bt_sibling(v)) {
-					bt_sibling(v)->color = RED;
-				}
-			} 
-
-			// delete v from the tree 
-			if (bt_is_left_child(v))
-			{ 
-				parent->left = NULL; 
-			} else { 
-				parent->right = NULL; 
-			} 
-		} 
-		free(v);
-		return; 
-	} 
-
-	if (!v->left || !v->right)
-	{ 
-		/* v has one child */
-		if (v == root) { 
-			// v is root, assign the value of u to v, and delete u 
-			v->val = u->val; 
-			v->left = v->right = NULL; 
-			free(u); 
-		} else { 
-			// Detach v from tree and move u up 
-			if (bt_is_left_child(v)) { 
-				parent->left = u; 
-			} else { 
-				parent->right = u; 
-			} 
-			free(v); 
-			u->parent = parent; 
-			if (uvBlack) { 
-				/* u and v both black, fix double black at u */
-				bt_fix_double_black(u); 
-			} else { 
-				/* u or v red, color u black */
-				u->color = BLACK; 
-			} 
-		} 
-		return; 
-	} 
-
-	/* v has 2 children, swap values with successor and recurse */
-	bt_value_swap(u, v); 
-	bt_delete(u); 
-} 
-
-
-bt_node *search(int n)
-{ 
-	bt_node *temp = root; 
-	while (temp != NULL) { 
-		if (n < temp->val) { 
-			if (temp->left == NULL) {
-				break; 
-			} else {
-				temp = temp->left;
-			}
-		} else if (n == temp->val) { 
-			break; 
-		} else { 
-			if (!temp->right) {
-				break;
-			} else {
-				temp = temp->right;
-			}
-		} 
-	} 
-	return temp; 
-} 
-
-
-void bt_insert(int n)
-{ 
-	bt_node *newNode = bt_node_create(n);
-	printf(" x=%d ", newNode->val);
-
-	if (!root) { 
-		newNode->color = BLACK; 
-		root = newNode; 
-	} else { 
-		bt_node *temp = search(n); 
-
-		if (temp->val == n) { 
-			return; 
-		} 
-
-		newNode->parent = temp; 
-
-		if (n < temp->val) {
-			temp->left = newNode;
-		} else {
-			temp->right = newNode;
-		}
-
-		bt_fix_red_red(newNode); 
-	} 
-} 
-
-
-void bt_delete_by_val(int n)
-{ 
-	if (!root) {
-		return; 
-	}
-
-	bt_node *v = search(n);
-	bt_node *u; 
-
-	if (v->val != n) { 
-		return; 
-	} 
-
-	bt_delete(v); 
-} 
-
-
-/* void inorder(bt_node *x)
-{ 
-	if (x == NULL) {
-		return;
-	}
-	inorder(x->left); 
-	printf(" %d ", x->val);
-	inorder(x->right); 
-}
-*/
-
-/* void print_in_order()
-{ 
-	printf("in order: "); 
-	if (!root) {
-		printf("tree is empty.\n");
-	} else {
-		inorder(root);
-	}
-	printf("\n");
-} 
-
-
-void bt_dot_print_null(int key, int nullcount, FILE* stream)
+static bt_node *bt_replace(bt_node *x)
 {
-	fprintf(stream, "    null%d [shape=point];\n", nullcount);
-	fprintf(stream, "    %d -> null%d;\n", key, nullcount);
+        // if node has 2 children
+        if (x->left && x->right) {
+                return bt_successor(x->right);
+        }
+
+        // if leaf
+        if (!x->left && !x->right) {
+                return NULL;
+        }
+
+        // if single child
+        if (x->left != NULL) {
+                return x->left;
+        }
+
+        return x->right;
 }
 
 
-void bt_dot_print_aux(bt_node *node, FILE *stream)
+static void bt_fix_double_black(bt_node **root, bt_node *x)
 {
-	static int nullcount = 0;
+        if (x == *root)
+        {
+                return;
+        }
 
-	if (node->left) {
-		fprintf(stream, "    %d -> %d;\n", node->val, node->left->val);
-		bt_dot_print_aux(node->left, stream);
-	} else {
-		bt_dot_print_null(node->val, nullcount++, stream);
-	}
+        bt_node *sibling = bt_sibling(x);
+        bt_node *parent = x->parent;
 
-	if (node->right) {
-		fprintf(stream, "    %d -> %d;\n", node->val, node->right->val);
-		bt_dot_print_aux(node->right, stream);
-	} else {
-		bt_dot_print_null(node->val, nullcount++, stream);
-	}
+        if (sibling == NULL) {
+                // No sibiling, double black pushed up
+                bt_fix_double_black(root, parent);
+                return;
+        }
+        if (sibling->color == RED) {
+                // Sibling red
+                parent->color = RED;
+                sibling->color = BLACK;
+                if (bt_is_left_child(sibling)) {
+                        bt_rotate_right(root, parent);
+                } else {
+                        bt_rotate_left(root, parent);
+                }
+                bt_fix_double_black(root, x);
+                return;
+        }
+        if (bt_has_red_child(sibling)) {
+                // at least 1 red children
+                if (sibling->left && (sibling->left->color == RED)) {
+                        if (bt_is_left_child(sibling)) {
+                                // left left
+                                sibling->left->color = sibling->color;
+                                sibling->color = parent->color;
+                                bt_rotate_right(root, parent);
+                        } else {
+                                // right left
+                                sibling->left->color = parent->color;
+                                bt_rotate_right(root, sibling);
+                                bt_rotate_left(root, parent);
+                        }
+                } else {
+                        if (bt_is_left_child(sibling)) {
+                                // left right
+                                sibling->right->color = parent->color;
+                                bt_rotate_left(root, sibling);
+                                bt_rotate_right(root, parent);
+                        } else {
+                                // right right
+                                sibling->right->color = sibling->color;
+                                sibling->color = parent->color;
+                                bt_rotate_left(root, parent);
+                        }
+                }
+                parent->color = BLACK;
+                return;
+        }
+        // 2 black children
+
+        sibling->color = RED;
+        if (parent->color == BLACK) {
+                bt_fix_double_black(root, parent);
+                return;
+        }
+
+        parent->color = BLACK;
 }
 
 
-void bt_dot_print(bt_node *tree, FILE *stream)
+void bt_delete(bt_node **root, bt_node *v)
 {
-	fprintf(stream, "digraph BST {\n");
-	fprintf(stream, "    node [fontname=\"Arial\"];\n");
+        bt_node *u = bt_replace(v);
 
-	if (!tree) {
-		fprintf(stream, "\n");
-	} else if (!tree->right && !tree->left) {
-		fprintf(stream, "    %d;\n", tree->val);
-	} else {
-		bt_dot_print_aux(tree, stream);
-	}
+        bool uvBlack = (u == NULL || u->color == BLACK) && (v->color == BLACK);
+        bt_node *parent = v->parent;
 
-	fprintf(stream, "}\n");
+        if (!u) {
+                /* u is NULL therefore v is leaf */
+                if (v == *root) {
+                        // v is root, making root null
+                        *root = NULL;
+                        free(v);
+                        return;
+                }
+                if (uvBlack) {
+                        /* u and v both black
+                         * v is leaf, fix double black at v */
+                        bt_fix_double_black(root, v);
+                } else {
+                        /* u or v is red */
+                        if (bt_sibling(v)) {
+                                bt_sibling(v)->color = RED;
+                        }
+                }
+
+                // delete v from the tree
+                if (bt_is_left_child(v))
+                {
+                        parent->left = NULL;
+                } else {
+                        parent->right = NULL;
+                }
+
+                free(v);
+                return;
+        }
+
+        if (!v->left || !v->right)
+        {
+                /* v has one child */
+                if (v == *root) {
+                        // v is root, assign the value of u to v, and delete u
+                        v->val = u->val;
+                        v->left = v->right = NULL;
+                        free(u);
+                        return;
+                }
+                // Detach v from tree and move u up
+                if (bt_is_left_child(v)) {
+                        parent->left = u;
+                } else {
+                        parent->right = u;
+                }
+                free(v);
+                u->parent = parent;
+                if (uvBlack) {
+                        /* u and v both black, fix double black at u */
+                        bt_fix_double_black(root, u);
+                        return;
+                }
+                /* u or v red, color u black */
+                u->color = BLACK;
+                return;
+        }
+
+        /* v has 2 children, swap values with successor and recurse */
+        bt_value_swap(u, v);
+        bt_delete(root, u);
 }
 
 
-
-int main(void)
+bt_node *search(bt_node **root, int n)
 {
+        bt_node *temp;
 
-	root = NULL;
+        temp = *root;
+        while (temp != NULL) {
+                if (n < temp->val) {
+                        if (temp->left == NULL) {
+                                break;
+                        }
+                        temp = temp->left;
+                        continue;
+                }
 
-	for (int i = 0; i < 31; i++) {	
+                if (n == temp->val || !temp->right) {
+                        break;
+                }
+                temp = temp->right;
 
-		bt_insert(rand()/1000000);
-	}
-	
-	FILE *dotlog = fopen("before_delete.dot", "w");
-	bt_dot_print(root, dotlog);
-	fclose(dotlog);
-
-	dotlog = fopen("after_delete.dot", "w");
-	bt_delete_by_val(812);
-	bt_dot_print(root, dotlog);
-
-	fclose(dotlog);
-
-	return 0;
+        }
+        return temp;
 }
-*/
+
+
+void bt_insert(bt_node **root, int n)
+{
+        bt_node *newNode = bt_node_create(n);
+
+        if (!*root) {
+                newNode->color = BLACK;
+                *root = newNode;
+                return;
+        }
+
+        bt_node *temp = search(root, n);
+
+        if (temp->val == n) {
+                return;
+        }
+
+        newNode->parent = temp;
+
+        if (n < temp->val) {
+                temp->left = newNode;
+        } else {
+                temp->right = newNode;
+        }
+
+        bt_fix_red_red(root, newNode);
+}
+
+
+void bt_delete_by_val(bt_node **root, int n)
+{
+        if (!*root) {
+                return;
+        }
+
+        bt_node *v = search(root, n);
+        bt_node *u;
+
+        if (v->val != n) {
+                return;
+        }
+
+        bt_delete(root, v);
+}
+
