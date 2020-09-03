@@ -1,0 +1,19 @@
+menu "Binary Trees"
+
+
+config BTREE
+	bool "Enable binary trees support"
+	default y
+	help
+	  Say Y if you want to enable binary tree library support.
+	  If you say N here, those functions are not compiled.
+
+config BTREE_RED_BLACK
+	bool "Enable self balacing red black binary trees"
+	default y
+	depends on BTREE
+	help
+	  Say Y if you want to enable self balancing red black trees.
+
+
+endmenu
